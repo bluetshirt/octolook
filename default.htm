@@ -1,0 +1,128 @@
+<html>
+<head>
+	<meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>OctoLook</title>
+	<style>
+	body
+	{
+		font-size:24px;
+	}
+	
+	input {font-size:125%; height:2em; width:6em;}
+	</style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+	<script src="envvars.js"></script>
+    <script>
+
+//apiroot and apikey defined in envvars.js
+
+var countcounter = 0;
+
+function updateStatus(data) {
+    $("#status").text(data.state.text);
+    $("#bed").text(data.temperature.bed.actual + "\u00B0C");
+    $("#tool0").text(data.temperature.tool0.actual + "\u00B0C");
+}
+
+function callApi() {
+    
+    $.ajax({
+            beforeSend: function(request) {
+                request.setRequestHeader("X-Api-Key", apikey);
+            },
+            dataType: "json",
+            url: apiroot + "api/printer",
+            success: updateStatus
+        });
+
+    $("#cam").attr("src", apiroot + "webcam/?action=snapshot&_=" + countcounter);
+    
+}
+
+function cmdResult() {
+    $("#result").text("Command sent");
+}
+
+function sendCustomGCode()
+{
+    var gcode = $("#gcode").val();
+
+    sendGCode(gcode);
+}
+
+function setTemps(bed, tool0) {
+    sendGCode("M140 S" + bed + "; M104 S" + tool0);
+}
+
+function preheat(){
+    setTemps(60, 200);
+}
+
+function cooldown()
+{
+    setTemps(0,0);
+}
+
+
+
+function sendGCode(g)
+{
+    var gcode = g.split(";");
+
+    var cmd; 
+
+    if (gcode.length == 1) {
+        cmd = JSON.stringify({"command": gcode});
+    }
+    else { 
+        cmd = JSON.stringify({"commands": gcode});
+    }
+    
+    $.ajax({
+            beforeSend: function(request) {
+                request.setRequestHeader("X-Api-Key", apikey);
+            },
+            dataType: "json",
+            url: apiroot + "api/printer/command",
+            method: "POST",
+            contentType: "application/json",
+            processData: false,
+            data: cmd,
+            success: cmdResult
+        });
+
+}
+
+$(document).ready(function() {  
+
+    //every five seconds, update the status
+    setInterval(callApi, 1000);
+    callApi();
+});
+
+
+
+
+    </script>
+</head>
+
+    <body>
+<div>Status: <span id="status"></span></div>
+<div>Bed Temp: <span id="bed"></span></div>
+<div>Extruder Temp: <span id="tool0"></span></div>
+<!--
+<div>
+    GCode: <input type="text" name="gcode" id="gcode" value="">
+    <input type="button" value="Send" onclick="sendCustomGCode()"> 
+</div>
+-->
+<div>
+    <input type="button" value="Preheat" onclick="preheat()">
+    <input type="button" value="Cooldown" onclick="cooldown()">
+</div>   
+<div style="display:none" id="result"></div>
+<div>
+    <img id="cam" style="width:80%;height:auto" src="https://192.168.68.246/webcam/?action=snapshot">
+</div>
+    </body>
+</html>
